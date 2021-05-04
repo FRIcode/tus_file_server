@@ -1,2 +1,3 @@
 aiohttp==3.7.4.post0
 aiohttp-tus==1.0.0
+pyvips==2.1.14

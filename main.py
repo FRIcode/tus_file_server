@@ -57,8 +57,8 @@ async def on_upload_done(request: web.Request, resource: Resource, path: Path):
 def replace_url(handler: Handler):
     def _handler(request: Request):
         request = request.clone(
-            scheme=args.scheme or request.scheme,
-            host=args.host or request.host,
+            scheme=args.gen_scheme or request.scheme,
+            host=args.gen_host or request.host,
         )
         return handler(request)
 

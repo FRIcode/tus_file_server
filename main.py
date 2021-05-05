@@ -1,8 +1,10 @@
 import base64
 import os
 from pathlib import Path
+from aiohttp.web_middlewares import _Handler as Handler
 import pyvips
 from aiohttp import web, ClientSession
+from aiohttp.web_request import Request
 from aiohttp_tus import setup_tus
 import argparse
 from aiohttp_tus.data import Resource
@@ -13,6 +15,8 @@ parser.add_argument('--host', type=str, default='localhost')
 parser.add_argument('--url', type=str, default='/upload/')
 parser.add_argument('--callback', type=str, default='http://localhost:8000/uploaded/')
 parser.add_argument('--dir', type=str, required=True)
+parser.add_argument('--gen-scheme', type=str)
+parser.add_argument('--gen-host', type=str)
 args = parser.parse_args()
 args.dir = Path(args.dir)
 
@@ -50,11 +54,23 @@ async def on_upload_done(request: web.Request, resource: Resource, path: Path):
             print(resp.status)
 
 
+def replace_url(handler: Handler):
+    def _handler(request: Request):
+        request = request.clone(
+            scheme=args.scheme or request.scheme,
+            host=args.host or request.host,
+        )
+        return handler(request)
+
+    return _handler
+
+
 app = setup_tus(
     web.Application(),
     upload_path=args.dir,
     upload_url=args.url,
     on_upload_done=on_upload_done,
+    decorator=replace_url
 )
 
 if __name__ == '__main__':

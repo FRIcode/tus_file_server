@@ -28,28 +28,6 @@ async def on_upload_done(request: web.Request, resource: Resource, path: Path):
         destination = str(destination)
         os.rename(path, destination)
         path = destination
-        if not args.callback:
-            return
-
-        async with ClientSession() as session:
-            callback_data = {
-                'filename': resource.file_name,
-                'size': resource.file_size,
-                'path': path,
-                **metadata
-            }
-            async with session.post(args.callback, data=callback_data) as resp:
-                print(resp.status)
-
-    app = setup_tus(
-        web.Application(),
-        upload_path=args.dir,
-        upload_url=args.url,
-        on_upload_done=on_upload_done,
-    )
-
-    if __name__ == '__main__':
-        web.run_app(app, host=args.host, port=args.port)
 
     if 'preview' in metadata:
         preview = args.dir / metadata.get('preview')
@@ -58,3 +36,26 @@ async def on_upload_done(request: web.Request, resource: Resource, path: Path):
         thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, 255)
         thumbnail.write_to_file(preview)
 
+    if not args.callback:
+        return
+
+    async with ClientSession() as session:
+        callback_data = {
+            'filename': resource.file_name,
+            'size': resource.file_size,
+            'path': path,
+            **metadata
+        }
+        async with session.post(args.callback, data=callback_data) as resp:
+            print(resp.status)
+
+
+app = setup_tus(
+    web.Application(),
+    upload_path=args.dir,
+    upload_url=args.url,
+    on_upload_done=on_upload_done,
+)
+
+if __name__ == '__main__':
+    web.run_app(app, host=args.host, port=args.port)

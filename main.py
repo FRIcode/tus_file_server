@@ -1,11 +1,12 @@
 import base64
 import os
+import traceback
 from pathlib import Path
 from aiohttp.web_middlewares import _Handler as Handler
 import pyvips
-from aiohttp import web, ClientSession
+from aiohttp import web, ClientSession, ClientError
 from aiohttp.web_request import Request
-from aiohttp_tus import setup_tus
+from aiohttp_tus import setup_tus, constants
 import argparse
 from aiohttp_tus.data import Resource
 
@@ -21,9 +22,12 @@ args = parser.parse_args()
 args.dir = Path(args.dir)
 
 
+def parse_metadata(metadata: str):
+    return {v.split(' ')[0]: base64.b64decode(v.split(' ')[1]).decode('utf-8') for v in metadata.split(',')}
+
+
 async def on_upload_done(request: web.Request, resource: Resource, path: Path):
-    metadata = {v.split(' ')[0]: base64.b64decode(v.split(' ')[1]).decode('utf-8') for v in
-                resource.metadata_header.split(',')}
+    metadata = parse_metadata(resource.metadata_header)
 
     path = str(path)
     if 'path' in metadata:
@@ -47,18 +51,18 @@ async def on_upload_done(request: web.Request, resource: Resource, path: Path):
         thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, 1920)
         thumbnail.write_to_file(preview_large)
 
-    if not args.callback:
-        return
+    await call_callback(metadata)
 
-    async with ClientSession() as session:
-        callback_data = {
-            'filename': resource.file_name,
-            'size': resource.file_size,
-            'path': path,
-            **metadata
-        }
-        async with session.post(args.callback, data=callback_data) as resp:
-            print(resp.status)
+
+async def call_callback(metadata):
+    if not args.callback:
+        return False
+    try:
+        async with ClientSession() as session:
+            async with session.post(args.callback, data=metadata) as resp:
+                return resp.status == 200
+    except ClientError:
+        return False
 
 
 def replace_url(handler: Handler):
@@ -67,7 +71,14 @@ def replace_url(handler: Handler):
             scheme=args.gen_scheme or request.scheme,
             host=args.gen_host or request.host,
         )
-        return handler(request)
+
+        try:
+            return handler(request)
+        except web.HTTPClientError as e:
+            traceback.print_exc()
+            if request.method == 'HEAD' and constants.HEADER_UPLOAD_METADATA in request.headers:
+                call_callback(parse_metadata(request.headers[constants.HEADER_UPLOAD_METADATA]))
+            raise e
 
     return _handler
 

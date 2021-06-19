@@ -37,19 +37,22 @@ async def on_upload_done(request: web.Request, resource: Resource, path: Path):
         os.rename(path, destination)
         path = destination
 
-    if 'preview' in metadata:
-        preview = args.dir / metadata.get('preview')
-        preview.parent.mkdir(parents=True, exist_ok=True)
-        preview = str(preview)
-        thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, 255)
-        thumbnail.write_to_file(preview)
+    try:
+        if 'preview' in metadata:
+            preview = args.dir / metadata.get('preview')
+            preview.parent.mkdir(parents=True, exist_ok=True)
+            preview = str(preview)
+            thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, 255)
+            thumbnail.write_to_file(preview)
 
-    if 'preview-large' in metadata:
-        preview_large = args.dir / metadata.get('preview-large')
-        preview_large.parent.mkdir(parents=True, exist_ok=True)
-        preview_large = str(preview_large)
-        thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, 1920)
-        thumbnail.write_to_file(preview_large)
+        if 'preview-large' in metadata:
+            preview_large = args.dir / metadata.get('preview-large')
+            preview_large.parent.mkdir(parents=True, exist_ok=True)
+            preview_large = str(preview_large)
+            thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, 1920)
+            thumbnail.write_to_file(preview_large)
+    except pyvips.Error:
+        pass
 
     await call_callback(metadata)
 

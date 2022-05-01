@@ -12,6 +12,7 @@ from aiohttp_tus.data import Resource
 
 parser = argparse.ArgumentParser(description='aiohttp implementation of TUS file server')
 parser.add_argument('--port', type=int, default=9000)
+parser.add_argument('--client-max-size', type=int, default=110 * 1000 * 1000)
 parser.add_argument('--host', type=str, default='localhost')
 parser.add_argument('--url', type=str, default='/upload/')
 parser.add_argument('--callback', type=str, default='http://localhost:8000/uploaded/')
@@ -87,7 +88,9 @@ def replace_url(handler: Handler):
 
 
 app = setup_tus(
-    web.Application(),
+    web.Application(
+        client_max_size=args.client_max_size,
+    ),
     upload_path=args.dir,
     upload_url=args.url,
     on_upload_done=on_upload_done,

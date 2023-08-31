@@ -2,20 +2,23 @@ import base64
 import os
 import traceback
 from pathlib import Path
-from aiohttp.web_middlewares import _Handler as Handler
+from aiohttp.web_middlewares import Handler
 import pyvips
 from aiohttp import web, ClientSession, ClientError
 from aiohttp.web_request import Request
-from aiohttp_tus import setup_tus, constants
+from aiohttp.web_response import Response
+from aiohttp_tus import setup_tus, constants, validators
 import argparse
 from aiohttp_tus.data import Resource
+import jwt
 
 parser = argparse.ArgumentParser(description='aiohttp implementation of TUS file server')
 parser.add_argument('--port', type=int, default=9000)
 parser.add_argument('--client-max-size', type=int, default=110 * 1000 * 1000)
 parser.add_argument('--host', type=str, default='localhost')
-parser.add_argument('--url', type=str, default='/upload/')
-parser.add_argument('--callback', type=str, default='http://localhost:8000/uploaded/')
+parser.add_argument('--url', type=str, default='/tus/')
+parser.add_argument('--callback', type=str, default='http://localhost:8000/upload/callback/')
+parser.add_argument('--secret', type=str, required=True, help='Secret key for JWT, shared with backend')
 parser.add_argument('--dir', type=str, required=True)
 parser.add_argument('--gen-scheme', type=str)
 parser.add_argument('--gen-host', type=str)
@@ -24,7 +27,10 @@ args.dir = Path(args.dir)
 
 
 def parse_metadata(metadata: str):
-    return {v.split(' ')[0]: base64.b64decode(v.split(' ')[1]).decode('utf-8') for v in metadata.split(',')}
+    metadata = {v.split(' ')[0]: base64.b64decode(v.split(' ')[1]).decode('utf-8') for v in metadata.split(',')}
+    jwt_metadata = jwt.decode(metadata['jwt'], args.secret, algorithms=['HS256'])
+    assert jwt_metadata['filename'] == metadata['filename']
+    return jwt_metadata
 
 
 async def on_upload_done(request: web.Request, resource: Resource, path: Path):
@@ -38,6 +44,7 @@ async def on_upload_done(request: web.Request, resource: Resource, path: Path):
         os.rename(path, destination)
         path = destination
 
+    has_thumbnail = True
     try:
         if 'preview' in metadata:
             preview = args.dir / metadata.get('preview')
@@ -53,35 +60,48 @@ async def on_upload_done(request: web.Request, resource: Resource, path: Path):
             thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, 1920)
             thumbnail.write_to_file(preview_large)
     except pyvips.Error:
-        pass
+        has_thumbnail = False
 
-    await call_callback(metadata)
+    await call_callback(metadata, has_thumbnail)
 
 
-async def call_callback(metadata):
+async def call_callback(metadata, has_thumbnail=True):
     if not args.callback:
         return False
     try:
         async with ClientSession() as session:
-            async with session.post(args.callback, data=metadata) as resp:
+            async with session.post(args.callback, data={
+                **metadata,
+                'has_thumbnail': 'true' if has_thumbnail else 'false'
+            }) as resp:
                 return resp.status == 200
     except ClientError:
         return False
 
 
-def replace_url(handler: Handler):
-    def _handler(request: Request):
+def request_decorator(handler: Handler):
+    async def _handler(request: Request):
+        if request.method == 'POST' and constants.HEADER_UPLOAD_METADATA in request.headers:
+            try:
+                parse_metadata(request.headers[constants.HEADER_UPLOAD_METADATA])
+            except (jwt.ExpiredSignatureError, ValueError):
+                # If the token has expired, return an error response
+                return Response(status=403, text="Token has expired")
+            except jwt.InvalidTokenError:
+                # If the token is invalid, return an error response
+                return Response(status=403, text="Invalid token")
+
         request = request.clone(
             scheme=args.gen_scheme or request.scheme,
             host=args.gen_host or request.host,
         )
 
         try:
-            return handler(request)
+            return await handler(request)
         except web.HTTPClientError as e:
             traceback.print_exc()
             if request.method == 'HEAD' and constants.HEADER_UPLOAD_METADATA in request.headers:
-                call_callback(parse_metadata(request.headers[constants.HEADER_UPLOAD_METADATA]))
+                await call_callback(parse_metadata(request.headers[constants.HEADER_UPLOAD_METADATA]))
             raise e
 
     return _handler
@@ -94,7 +114,7 @@ app = setup_tus(
     upload_path=args.dir,
     upload_url=args.url,
     on_upload_done=on_upload_done,
-    decorator=replace_url
+    decorator=request_decorator
 )
 
 if __name__ == '__main__':

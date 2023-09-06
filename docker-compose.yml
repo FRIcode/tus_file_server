@@ -1,0 +1,7 @@
+version: '3'
+
+services:
+  tus:
+    platform: linux/amd64
+    image: registry.koin.musiclab.si/fricode/tus_file_server:${VERSION:-latest}
+    build: .

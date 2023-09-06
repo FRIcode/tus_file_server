@@ -14,3 +14,4 @@ export VERSION=$version
 
 # Build and tag all services
 docker-compose build
+docker-compose push

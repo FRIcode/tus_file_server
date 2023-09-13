@@ -1,14 +1,5 @@
 FROM python:3.11-slim
 
-ENV UPLOAD_CALLBACK=""
-ENV SECRET_KEY=""
-ENV HOST=0.0.0.0
-ENV PORT=9000
-ENV URL_LOCATION=/upload/
-ENV UPLOAD_DIRECTORY=/uploads
-ENV GEN_HOST=dekralk.amzs.si
-ENV GEN_SCHEME=https
-
 RUN apt update -y && \
     apt install libvips-dev -y
 

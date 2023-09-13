@@ -12,17 +12,23 @@ import argparse
 from aiohttp_tus.data import Resource
 import jwt
 
+# --host $HOST --port $PORT --url $URL_LOCATION --callback $UPLOAD_CALLBACK --dir $UPLOAD_DIRECTORY --gen-host $GEN_HOST --gen-scheme $GEN_SCHEME --client-max-size $CLIENT_MAX_SIZE
 parser = argparse.ArgumentParser(description='aiohttp implementation of TUS file server')
-parser.add_argument('--port', type=int, default=9000)
-parser.add_argument('--client-max-size', type=int, default=110 * 1000 * 1000)
-parser.add_argument('--host', type=str, default='localhost')
-parser.add_argument('--url', type=str, default='/tus/')
-parser.add_argument('--callback', type=str, default='http://localhost:8000/upload/callback/')
-parser.add_argument('--secret', type=str, default=os.getenv('SECRET_KEY'),
-                    help='Secret key for JWT, shared with backend')
-parser.add_argument('--dir', type=str, required=True)
-parser.add_argument('--gen-scheme', type=str)
-parser.add_argument('--gen-host', type=str)
+parser.add_argument('--port', type=int, default=int(os.getenv('PORT', '9000')))
+parser.add_argument('--client-max-size', type=int, default=int(os.getenv('CLIENT_MAX_SIZE', f'{110 * 1000 * 1000}')))
+parser.add_argument('--host', type=str, default=os.getenv('HOST', 'localhost'))
+parser.add_argument('--url', type=str, default=os.getenv('URL_LOCATION', '/tus/'))
+parser.add_argument(
+    '--callback', type=str,
+    default=os.getenv('UPLOAD_CALLBACK', 'http://localhost:8000/upload/callback/')
+)
+parser.add_argument(
+    '--secret', type=str, default=os.getenv('SECRET_KEY'),
+    help='Secret key for JWT, shared with backend'
+)
+parser.add_argument('--dir', type=str, required=True, default=os.getenv('UPLOAD_DIRECTORY'))
+parser.add_argument('--gen-scheme', type=str, default=os.getenv('GEN_SCHEME'))
+parser.add_argument('--gen-host', type=str, default=os.getenv('GEN_HOST'))
 args = parser.parse_args()
 assert args.secret, 'SECRET_KEY is required'
 args.dir = Path(args.dir)

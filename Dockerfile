@@ -11,5 +11,6 @@ COPY main.py .
 
 EXPOSE 9000
 ENV CLIENT_MAX_SIZE=110000000
+ENV UPLOAD_DIRECTORY=/uploads
 
 CMD python main.py

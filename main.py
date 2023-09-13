@@ -26,11 +26,12 @@ parser.add_argument(
     '--secret', type=str, default=os.getenv('SECRET_KEY'),
     help='Secret key for JWT, shared with backend'
 )
-parser.add_argument('--dir', type=str, required=True, default=os.getenv('UPLOAD_DIRECTORY'))
+parser.add_argument('--dir', type=str, default=os.getenv('UPLOAD_DIRECTORY'))
 parser.add_argument('--gen-scheme', type=str, default=os.getenv('GEN_SCHEME'))
 parser.add_argument('--gen-host', type=str, default=os.getenv('GEN_HOST'))
 args = parser.parse_args()
 assert args.secret, 'SECRET_KEY is required'
+assert args.dir, 'UPLOAD_DIRECTORY is required'
 args.dir = Path(args.dir)
 
 

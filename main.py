@@ -16,6 +16,8 @@ import jwt
 parser = argparse.ArgumentParser(description='aiohttp implementation of TUS file server')
 parser.add_argument('--port', type=int, default=int(os.getenv('PORT', '9000')))
 parser.add_argument('--client-max-size', type=int, default=int(os.getenv('CLIENT_MAX_SIZE', f'{110 * 1000 * 1000}')))
+parser.add_argument('--preview-size', type=int, default=int(os.getenv('PREVIEW_SIZE', f'512')))
+parser.add_argument('--preview-large-size', type=int, default=int(os.getenv('PREVIEW_LARGE_SIZE', f'1920')))
 parser.add_argument('--host', type=str, default=os.getenv('HOST', 'localhost'))
 parser.add_argument('--url', type=str, default=os.getenv('URL_LOCATION', '/tus/'))
 parser.add_argument(
@@ -59,14 +61,14 @@ async def on_upload_done(request: web.Request, resource: Resource, path: Path):
             preview = args.dir / metadata.get('preview')
             preview.parent.mkdir(parents=True, exist_ok=True)
             preview = str(preview)
-            thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, 255)
+            thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, args.preview_size)
             thumbnail.write_to_file(preview)
 
         if 'preview-large' in metadata:
             preview_large = args.dir / metadata.get('preview-large')
             preview_large.parent.mkdir(parents=True, exist_ok=True)
             preview_large = str(preview_large)
-            thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, 1920)
+            thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, args.preview_large_size)
             thumbnail.write_to_file(preview_large)
     except pyvips.Error:
         has_thumbnail = False

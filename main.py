@@ -28,6 +28,7 @@ parser.add_argument(
     '--secret', type=str, default=os.getenv('SECRET_KEY'),
     help='Secret key for JWT, shared with backend'
 )
+parser.add_argument('--secret-key-algorithm', type=str, default=os.getenv('SECRET_KEY_ALGORITHM', 'HS256'))
 parser.add_argument('--dir', type=str, default=os.getenv('UPLOAD_DIRECTORY'))
 parser.add_argument('--gen-scheme', type=str, default=os.getenv('GEN_SCHEME'))
 parser.add_argument('--gen-host', type=str, default=os.getenv('GEN_HOST'))
@@ -39,7 +40,7 @@ args.dir = Path(args.dir)
 
 def parse_metadata(metadata: str):
     metadata = {v.split(' ')[0]: base64.b64decode(v.split(' ')[1]).decode('utf-8') for v in metadata.split(',')}
-    jwt_metadata = jwt.decode(metadata['jwt'], args.secret, algorithms=['HS256'])
+    jwt_metadata = jwt.decode(metadata['jwt'], args.secret, algorithms=[args.secret_key_algorithm])
     assert jwt_metadata['filename'] == metadata['filename']
     return jwt_metadata
 

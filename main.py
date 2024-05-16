@@ -28,14 +28,22 @@ parser.add_argument(
     '--secret', type=str, default=os.getenv('SECRET_KEY'),
     help='Secret key for JWT, shared with backend'
 )
+parser.add_argument(
+    '--secret-path', type=str, default=os.getenv('SECRET_KEY_PATH'),
+    help='Path to the file containing the secret key for JWT, shared with backend'
+)
 parser.add_argument('--secret-key-algorithm', type=str, default=os.getenv('SECRET_KEY_ALGORITHM', 'HS256'))
 parser.add_argument('--dir', type=str, default=os.getenv('UPLOAD_DIRECTORY'))
 parser.add_argument('--gen-scheme', type=str, default=os.getenv('GEN_SCHEME'))
 parser.add_argument('--gen-host', type=str, default=os.getenv('GEN_HOST'))
 args = parser.parse_args()
-assert args.secret, 'SECRET_KEY is required'
+assert args.secret or args.secret_path, 'SECRET_KEY or SECRET_KEY_PATH is required'
 assert args.dir, 'UPLOAD_DIRECTORY is required'
 args.dir = Path(args.dir)
+
+if args.secret_path:
+    with open(args.secret_path, 'r', encoding='utf-8') as f:
+        args.secret = f.read()
 
 
 def parse_metadata(metadata: str):

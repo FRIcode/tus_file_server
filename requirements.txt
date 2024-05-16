@@ -1,4 +1,4 @@
 aiohttp==3.8.5
 aiohttp-tus==1.1.0
 pyvips==2.2.1
-PyJWT==2.8.0
+PyJWT[crypto]==2.8.0

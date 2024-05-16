@@ -1,5 +1,6 @@
 import base64
 import os
+import subprocess
 import traceback
 from pathlib import Path
 from aiohttp.web_middlewares import Handler
@@ -36,10 +37,12 @@ parser.add_argument('--secret-key-algorithm', type=str, default=os.getenv('SECRE
 parser.add_argument('--dir', type=str, default=os.getenv('UPLOAD_DIRECTORY'))
 parser.add_argument('--gen-scheme', type=str, default=os.getenv('GEN_SCHEME'))
 parser.add_argument('--gen-host', type=str, default=os.getenv('GEN_HOST'))
+parser.add_argument('--include-hash', type=str, default=os.getenv('INCLUDE_HASH', '0'))
 args = parser.parse_args()
 assert args.secret or args.secret_path, 'SECRET_KEY or SECRET_KEY_PATH is required'
 assert args.dir, 'UPLOAD_DIRECTORY is required'
 args.dir = Path(args.dir)
+parser.include_hash = parser.include_hash == '1'
 
 if args.secret_path:
     with open(args.secret_path, 'r', encoding='utf-8') as f:
@@ -50,6 +53,7 @@ def parse_metadata(metadata: str):
     metadata = {v.split(' ')[0]: base64.b64decode(v.split(' ')[1]).decode('utf-8') for v in metadata.split(',')}
     jwt_metadata = jwt.decode(metadata['jwt'], args.secret, algorithms=[args.secret_key_algorithm])
     assert jwt_metadata['filename'] == metadata['filename']
+    assert set(metadata.keys()) == {'filename', 'jwt'}
     return jwt_metadata
 
 
@@ -82,6 +86,8 @@ async def on_upload_done(request: web.Request, resource: Resource, path: Path):
     except pyvips.Error:
         has_thumbnail = False
 
+    if args.include_hash:
+        metadata['hash'] = subprocess.check_output(['cksum', path]).decode('utf-8').split(' ')[0]
     await call_callback(metadata, has_thumbnail)
 
 

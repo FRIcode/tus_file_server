@@ -42,7 +42,7 @@ args = parser.parse_args()
 assert args.secret or args.secret_path, 'SECRET_KEY or SECRET_KEY_PATH is required'
 assert args.dir, 'UPLOAD_DIRECTORY is required'
 args.dir = Path(args.dir)
-parser.include_hash = parser.include_hash == '1'
+args.include_hash = args.include_hash == '1'
 
 if args.secret_path:
     with open(args.secret_path, 'r', encoding='utf-8') as f:

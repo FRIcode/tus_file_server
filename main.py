@@ -118,8 +118,8 @@ def request_decorator(handler: Handler):
                 return Response(status=403, text="Invalid token")
 
         request = request.clone(
-            scheme=args.gen_scheme or request.scheme,
-            host=args.gen_host or request.host,
+            scheme=request.headers.get('X-Tus-Scheme') or args.gen_scheme or request.scheme,
+            host=request.headers.get('X-Tus-Host') or args.gen_host or request.host,
         )
 
         try:

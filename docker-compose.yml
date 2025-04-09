@@ -5,3 +5,7 @@ services:
     platform: linux/amd64
     image: registry.koin.musiclab.si/fricode/tus_file_server:${VERSION:-latest}
     build: .
+  tus-fg:
+    platform: linux/amd64
+    image: registry.fluent-gear.com/common/tus_file_server:${VERSION:-latest}
+    build: .

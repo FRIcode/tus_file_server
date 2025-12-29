@@ -57,6 +57,39 @@ def parse_metadata(metadata: str):
     return jwt_metadata
 
 
+def is_video_file(file_path: str) -> bool:
+    """Check if file is a video using ffprobe."""
+    try:
+        result = subprocess.run([
+            'ffprobe', '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=codec_type',
+            '-of', 'csv=p=0',
+            file_path
+        ], capture_output=True, text=True, timeout=10)
+        return result.stdout.strip() == 'video'
+    except (subprocess.SubprocessError, OSError):
+        return False
+
+
+def generate_video_thumbnail(video_path: str, output_path: str, size: int):
+    """Generate a thumbnail from a video file using ffmpeg.
+
+    Scales to fit within size while maintaining aspect ratio (same as pyvips.thumbnail).
+    """
+    # Scale to fit within size while maintaining aspect ratio
+    # -2 ensures dimensions are divisible by 2 (required for some codecs)
+    scale_filter = f"scale=w={size}:h={size}:force_original_aspect_ratio=decrease"
+    subprocess.run([
+        'ffmpeg', '-y',
+        '-i', video_path,
+        '-ss', '00:00:01',  # Seek to 1 second
+        '-vframes', '1',
+        '-vf', scale_filter,
+        output_path
+    ], check=True, capture_output=True)
+
+
 async def on_upload_done(request: web.Request, resource: Resource, path: Path):
     metadata = parse_metadata(resource.metadata_header)
 
@@ -74,16 +107,28 @@ async def on_upload_done(request: web.Request, resource: Resource, path: Path):
             preview = args.dir / metadata.get('preview')
             preview.parent.mkdir(parents=True, exist_ok=True)
             preview = str(preview)
-            thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, args.preview_size)
-            thumbnail.write_to_file(preview)
+            try:
+                thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, args.preview_size)
+                thumbnail.write_to_file(preview)
+            except pyvips.Error:
+                if is_video_file(path):
+                    generate_video_thumbnail(path, preview, args.preview_size)
+                else:
+                    raise
 
         if 'preview-large' in metadata:
             preview_large = args.dir / metadata.get('preview-large')
             preview_large.parent.mkdir(parents=True, exist_ok=True)
             preview_large = str(preview_large)
-            thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, args.preview_large_size)
-            thumbnail.write_to_file(preview_large)
-    except pyvips.Error:
+            try:
+                thumbnail: pyvips.Image = pyvips.Image.thumbnail(path, args.preview_large_size)
+                thumbnail.write_to_file(preview_large)
+            except pyvips.Error:
+                if is_video_file(path):
+                    generate_video_thumbnail(path, preview_large, args.preview_large_size)
+                else:
+                    raise
+    except (pyvips.Error, subprocess.CalledProcessError):
         has_thumbnail = False
 
     if args.include_hash:

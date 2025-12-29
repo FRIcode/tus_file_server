@@ -1,7 +1,7 @@
 FROM python:3.13-slim
 
 RUN apt update -y && \
-    apt install libvips-dev -y
+    apt install libvips-dev ffmpeg -y
 
 WORKDIR /app
 
